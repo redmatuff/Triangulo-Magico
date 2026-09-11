@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-lenght, initial-scale=0.75">
+    <title>Triângulo Mágico</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js para efeitos sonoros -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Fredoka:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Fredoka', sans-serif;
+            touch-action: none;
+        }
+
+        .font-board {
+            font-family: 'Cinzel', serif;
+        }
+
+        /* Estilo de Madeira/Feltro */
+        .board-bg {
+            background-color: #2b170c;
+            background-image: 
+                radial-gradient(ellipse at center, rgba(30, 58, 38, 0.85) 0%, rgba(20, 38, 25, 0.95) 75%, rgba(15, 23, 16, 0.98) 100%),
+                repeating-linear-gradient(45deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 2px, transparent 2px, transparent 4px);
+            box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.8);
+        }
+
+        .wood-border {
+            background: linear-gradient(135deg, #5c2419 0%, #3b140e 50%, #280b07 100%);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.2);
+        }
+
+        .bordeaux-bg {
+            background: linear-gradient(135deg, #800020 0%, #580016 100%);
+        }
+
+        .bordeaux-btn {
+            background: linear-gradient(135deg, #800020 0%, #580016 100%);
+            border: 1px solid #a32a42;
+        }
+
+        .bordeaux-btn:hover {
+            background: linear-gradient(135deg, #990026 0%, #6e001c 100%);
+        }
+
+        .moss-green-card {
+            background: linear-gradient(135deg, #1e3a26 0%, #132619 100%);
+            border: 1px solid #2d5438;
+        }
+
+        /* Peça de Madeira Gravada */
+        .wood-piece {
+            background: radial-gradient(circle, #e6be8a 0%, #c49a62 70%, #99723e 100%);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5), inset 0 2px 3px rgba(255, 255, 255, 0.6), inset 0 -2px 4px rgba(0,0,0,0.4);
+            color: #3b140e;
+            text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.4);
+        }
+
+        .wood-piece-used {
+            background: radial-gradient(circle, #524336 0%, #382d24 100%);
+            opacity: 0.35;
+            box-shadow: none;
+        }
+
+        .node-pulse {
+            animation: pulse-ring 0s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(230, 190, 138, 0.4); }
+            50% { transform: scale(1); box-shadow: 0 0 0 12px rgba(230, 190, 138, 0); }
+        }
+
+        .bounce-in {
+            animation: bounceIn 0.0s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.2); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Suporte Touch Drag Customizado */
+        .dragging-touch {
+            position: fixed !important;
+            pointer-events: none !important;
+            z-index: 9999 !important;
+            transform: translate(-50%, -50%) !important;
+            transition: none !important;
+            opacity: 0.9;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.6) !important;
+        }
+    </style>
+</head>
+<body class="board-bg text-amber-50 min-h-full flex flex-col justify-between select-none">
+
+    <!-- Cabeçalho (Estilo Moldura de Madeira & Bordô) -->
+    <header class="wood-border border-b-2 border-amber-900/50 sticky top-0 z-20 px-4 py-3">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold font-board tracking-wider text-amber-200 drop-shadow">
+                        Triângulo Mágico
+                    </h1>
+                    <p class="text-xs text-amber-200/70 hidden sm:block">Enigma Matemático Clássico de Tabuleiro</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button id="soundToggleBtn" onclick="toggleSound()" class="p-2.5 bg-black/30 hover:bg-black/50 border border-amber-900/50 rounded-xl text-amber-200 transition-all">
+                    <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                </button>
+                <button onclick="openRulesModal()" class="p-2.5 bg-black/30 hover:bg-black/50 border border-amber-900/50 rounded-xl text-amber-200 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span class="text-xs font-semibold hidden md:inline">Regras</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteúdo Principal -->
+    <main class="max-w-4xl w-full mx-auto p-4 flex-1 flex flex-col items-center justify-center gap-4">
+
+        <!-- Seleção de Fases -->
+        <div class="w-full max-w-md bg-black/40 p-1.5 rounded-2xl border border-amber-900/50 flex justify-between gap-1 shadow-2xl backdrop-blur-sm">
+            <button onclick="selectLevel(1)" id="lvlBtn1" class="lvl-btn flex-1 py-2 px-1 text-center rounded-xl font-bold text-xs sm:text-sm transition-all">
+                Fase 1<br><span class="text-[10px] font-normal opacity-80">Soma 9</span>
+            </button>
+            <button onclick="selectLevel(2)" id="lvlBtn2" class="lvl-btn flex-1 py-2 px-1 text-center rounded-xl font-bold text-xs sm:text-sm transition-all">
+                Fase 2<br><span class="text-[10px] font-normal opacity-80">Soma 10</span>
+            </button>
+            <button onclick="selectLevel(3)" id="lvlBtn3" class="lvl-btn flex-1 py-2 px-1 text-center rounded-xl font-bold text-xs sm:text-sm transition-all">
+                Fase 3<br><span class="text-[10px] font-normal opacity-80">Soma 11</span>
+            </button>
+            <button onclick="selectLevel(4)" id="lvlBtn4" class="lvl-btn flex-1 py-2 px-1 text-center rounded-xl font-bold text-xs sm:text-sm transition-all">
+                Fase 4<br><span class="text-[10px] font-normal opacity-80">Soma 12</span>
+            </button>
+        </div>
+
+        <!-- Banner de Objetivo -->
+        <div class="moss-green-card rounded-2xl p-3 px-6 text-center shadow-2xl flex items-center gap-4 border border-emerald-600/30">
+            <div class="text-left">
+                <span class="text-[11px] text-amber-300 font-semibold uppercase tracking-wider block font-board">Objetivo da Fase</span>
+                <span class="text-xs sm:text-sm font-medium text-amber-100">Soma em cada uma das 3 arestas:</span>
+            </div>
+            <div id="targetSumDisplay" class="text-3xl font-black font-board text-amber-300 bordeaux-bg px-4 py-1 rounded-xl border border-amber-400/40 shadow-inner">
+                9
+            </div>
+        </div>
+
+        <!-- Área do Tabuleiro do Triângulo -->
+        <div class="relative w-full max-w-[400px] aspect-square my-2 flex items-center justify-center">
+            
+            <!-- SVG das Arestas do Triângulo Gravadas -->
+            <svg class="absolute inset-0 w-full h-full drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] pointer-events-none" viewBox="0 0 100 100">
+                <!-- Linhas das Arestas -->
+                <line id="edge-left" x1="50" y1="12" x2="12" y2="82" stroke="#800020" stroke-width="4" stroke-linecap="round"/>
+                <line id="edge-right" x1="50" y1="12" x2="88" y2="82" stroke="#800020" stroke-width="4" stroke-linecap="round"/>
+                <line id="edge-bottom" x1="12" y1="82" x2="88" y2="82" stroke="#800020" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+
+            <!-- 
+                EMBLEMAS DE SOMA DAS ARESTAS
+                Afastados aproximadamente 3cm (~80-90px no layout) das medianas 
+            -->
+            <!-- Aresta Esquerda -->
+            <div id="side-sum-left" class="absolute top-[35%] left-[-2%] -translate-x-1/2 -translate-y-1/2 bg-stone-900 border-2 border-amber-600/70 rounded-full w-12 h-12 flex flex-col items-center justify-center text-xs font-bold text-amber-100 shadow-2xl transition-all z-10">
+                <span class="text-[9px] text-amber-400/80 font-normal">Soma</span>
+                <span id="sum-val-left" class="font-black text-sm">0</span>
+            </div>
+
+            <!-- Aresta Direita -->
+            <div id="side-sum-right" class="absolute top-[35%] right-[-2%] translate-x-1/2 -translate-y-1/2 bg-stone-900 border-2 border-amber-600/70 rounded-full w-12 h-12 flex flex-col items-center justify-center text-xs font-bold text-amber-100 shadow-2xl transition-all z-10">
+                <span class="text-[9px] text-amber-400/80 font-normal">Soma</span>
+                <span id="sum-val-right" class="font-black text-sm">0</span>
+            </div>
+
+            <!-- Aresta Inferior -->
+            <div id="side-sum-bottom" class="absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-stone-900 border-2 border-amber-600/70 rounded-full w-12 h-12 flex flex-col items-center justify-center text-xs font-bold text-amber-100 shadow-2xl transition-all z-10">
+                <span class="text-[9px] text-amber-400/80 font-normal">Soma</span>
+                <span id="sum-val-bottom" class="font-black text-sm">0</span>
+            </div>
+
+            <!-- POSIÇÕES (SLOTS/CASAS DO TABULEIRO) -->
+            <!-- SLOT 0: Vértice Topo -->
+            <div data-slot-idx="0" onclick="handleSlotClick(0)" ondragover="allowDrop(event)" ondrop="handleDrop(event, 0)" 
+                 id="slot-0" class="slot-node absolute top-[12%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 bg-stone-900/90 border-2 border-dashed border-amber-500/50 rounded-full flex items-center justify-center cursor-pointer shadow-2xl transition-all z-10">
+            </div>
+
+            <!-- SLOT 1: Mediana Direita -->
+            <div data-slot-idx="1" onclick="handleSlotClick(1)" ondragover="allowDrop(event)" ondrop="handleDrop(event, 1)" 
+                 id="slot-1" class="slot-node absolute top-[47%] left-[69%] -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 bg-stone-900/90 border-2 border-dashed border-amber-500/50 rounded-full flex items-center justify-center cursor-pointer shadow-2xl transition-all z-10">
+            </div>
+
+            <!-- SLOT 2: Vértice Inferior Direito -->
+            <div data-slot-idx="2" onclick="handleSlotClick(2)" ondragover="allowDrop(event)" ondrop="handleDrop(event, 2)" 
+                 id="slot-2" class="slot-node absolute top-[82%] left-[88%] -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 bg-stone-900/90 border-2 border-dashed border-amber-500/50 rounded-full flex items-center justify-center cursor-pointer shadow-2xl transition-all z-10">
+            </div>
+
+            <!-- SLOT 3: Mediana Base -->
+            <div data-slot-idx="3" onclick="handleSlotClick(3)" ondragover="allowDrop(event)" ondrop="handleDrop(event, 3)" 
+                 id="slot-3" class="slot-node absolute top-[82%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 bg-stone-900/90 border-2 border-dashed border-amber-500/50 rounded-full flex items-center justify-center cursor-pointer shadow-2xl transition-all z-10">
+            </div>
+
+            <!-- SLOT 4: Vértice Inferior Esquerdo -->
+            <div data-slot-idx="4" onclick="handleSlotClick(4)" ondragover="allowDrop(event)" ondrop="handleDrop(event, 4)" 
+                 id="slot-4" class="slot-node absolute top-[82%] left-[12%] -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 bg-stone-900/90 border-2 border-dashed border-amber-500/50 rounded-full flex items-center justify-center cursor-pointer shadow-2xl transition-all z-10">
+            </div>
+
+            <!-- SLOT 5: Mediana Esquerda -->
+            <div data-slot-idx="5" onclick="handleSlotClick(5)" ondragover="allowDrop(event)" ondrop="handleDrop(event, 5)" 
+                 id="slot-5" class="slot-node absolute top-[47%] left-[31%] -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 bg-stone-900/90 border-2 border-dashed border-amber-500/50 rounded-full flex items-center justify-center cursor-pointer shadow-2xl transition-all z-10">
+            </div>
+        </div>
+
+        <!-- Bancada de Peças de Madeira (Números 1 a 6) -->
+        <div class="w-full max-w-md bg-black/40 border border-amber-900/50 rounded-2xl p-4 shadow-2xl flex flex-col items-center gap-2 mt-2">
+            <span class="text-[11px] font-semibold text-amber-300 uppercase tracking-wider font-board">
+                Peças Disponíveis (Arraste livremente para o tabuleiro)
+            </span>
+            <div id="numberBank" class="flex justify-center items-center gap-2 sm:gap-3 flex-wrap min-h-[64px]">
+                <!-- Números gerados dinamicamente via JS -->
+            </div>
+        </div>
+
+        <!-- Botões de Controle -->
+        <div class="flex items-center gap-3 flex-wrap justify-center mt-1">
+            <button onclick="resetCurrentBoard()" class="px-4 py-2.5 bg-stone-800 hover:bg-stone-700 border border-amber-900/40 rounded-xl font-medium text-xs sm:text-sm text-amber-200 transition-all flex items-center gap-2 shadow-lg">
+                <i class="fa-solid fa-rotate-left"></i> Limpar
+            </button>
+            <button onclick="giveHint()" class="px-4 py-2.5 moss-green-card hover:brightness-125 rounded-xl font-medium text-xs sm:text-sm text-amber-200 transition-all flex items-center gap-2 shadow-lg">
+                <i class="fa-regular fa-lightbulb"></i> Dica
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="py-3 text-center text-xs text-amber-200/50 border-t border-amber-900/30">
+        Jogo do Triângulo Mágico &bull; Estilo Tabuleiro Clássico
+    </footer>
+
+    <!-- Modal de Vitória -->
+    <div id="victoryModal" class="fixed inset-0 bg-black/85 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+        <div class="wood-border border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl bounce-in">
+            <div class="w-20 h-20 bordeaux-bg text-amber-300 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 border-2 border-amber-400/40 shadow-xl">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 class="text-2xl font-black font-board text-amber-200 mb-2">Excelente!</h2>
+            <p id="victoryMessage" class="text-amber-100/90 text-sm mb-6">Você completou o enigma!</p>
+            <div class="flex flex-col gap-2">
+                <button id="nextLevelBtn" onclick="advanceLevel()" class="w-full py-3 bordeaux-btn text-amber-100 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 font-board">
+                    Próxima Fase <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <button onclick="closeVictoryModal()" class="w-full py-2.5 bg-stone-800 hover:bg-stone-700 text-amber-200 font-medium rounded-xl transition-all border border-amber-900/50">
+                    Revisar Tabuleiro
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Regras -->
+    <div id="rulesModal" class="fixed inset-0 bg-black/85 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+        <div class="wood-border border border-amber-700/50 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+            <div class="flex justify-between items-center mb-4 border-b border-amber-900/50 pb-3">
+                <h3 class="text-lg font-bold font-board text-amber-200 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-amber-400"></i> Como Jogar
+                </h3>
+                <button onclick="closeRulesModal()" class="text-amber-400 hover:text-amber-100 p-1">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-sm text-amber-100/90 leading-relaxed">
+                <p>O <strong>Triângulo Mágico</strong> é um clássico jogo de raciocínio lógico.</p>
+                <ul class="list-disc list-inside space-y-1 text-amber-200/80">
+                    <li>Arraste as peças numeradas de <strong>1 a 6</strong> para as casas do tabuleiro.</li>
+                    <li>As casas situam-se nos 3 <strong>vértices</strong> e nas 3 <strong>medianas</strong> das arestas.</li>
+                    <li>Cada aresta é formada por 3 números (2 vértices + 1 mediana).</li>
+                    <li>O objetivo é fazer com que a <strong>soma dos 3 números de cada aresta</strong> seja idêntica ao objetivo da fase!</li>
+                </ul>
+                <div class="moss-green-card p-3 rounded-xl text-xs text-amber-200 mt-2 border border-emerald-500/30">
+                    <i class="fa-solid fa-lightbulb text-amber-400 mr-1"></i> Você pode mover os números livremente de um lugar para o outro, ou clicar na peça e depois na casa do tabuleiro!
+                </div>
+            </div>
+            <button onclick="closeRulesModal()" class="mt-6 w-full py-2.5 bordeaux-btn text-amber-100 font-bold rounded-xl transition-all">
+                Entendido!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* Configurações Globais das Posições das Casas */
+        const SLOT_POSITIONS = [
+            { top: "12%", left: "50%" }, // 0 - Vértice Topo
+            { top: "47%", left: "69%" }, // 1 - Mediana Direita
+            { top: "82%", left: "88%" }, // 2 - Vértice Inferior Direito
+            { top: "82%", left: "50%" }, // 3 - Mediana Base
+            { top: "82%", left: "12%" }, // 4 - Vértice Inferior Esquerdo
+            { top: "47%", left: "31%" }  // 5 - Mediana Esquerda
+        ];
+
+        /* Configurações do Jogo e Soluções Matemáticas */
+        const LEVEL_CONFIGS = {
+            1: { targetSum: 9,  solutions: [[1, 6, 2, 4, 3, 5]] },
+            2: { targetSum: 10, solutions: [[1, 6, 3, 2, 5, 4]] },
+            3: { targetSum: 11, solutions: [[2, 5, 4, 1, 6, 3]] },
+            4: { targetSum: 12, solutions: [[4, 3, 5, 1, 6, 2]] }
+        };
+
+        let currentLevel = 1;
+        let boardState = [null, null, null, null, null, null]; // 6 posições
+        let selectedNumber = null;
+        let draggedFromSlot = null;
+        let soundEnabled = true;
+        let synth = null;
+
+        // Inicializar Áudio (Tone.js)
+        function initAudio() {
+            if (!synth) {
+                synth = new Tone.Synth({
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.2 }
+                }).toDestination();
+            }
+        }
+
+        function playTone(note, duration = "8n") {
+            if (!soundEnabled) return;
+            try {
+                initAudio();
+                Tone.start();
+                synth.triggerAttackRelease(note, duration);
+            } catch (e) {}
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById("soundIcon");
+            if (soundEnabled) {
+                icon.className = "fa-solid fa-volume-high";
+                playTone("C5");
+            } else {
+                icon.className = "fa-solid fa-volume-xmark text-rose-400";
+            }
+        }
+
+        function selectLevel(lvl) {
+            currentLevel = lvl;
+            boardState = [null, null, null, null, null, null];
+            selectedNumber = null;
+
+            for (let i = 1; i <= 4; i++) {
+                const btn = document.getElementById(`lvlBtn${i}`);
+                if (i === lvl) {
+                    btn.className = "lvl-btn flex-1 py-2 px-1 text-center rounded-xl font-bold font-board text-xs sm:text-sm bordeaux-bg text-amber-200 border border-amber-500/40 shadow-md transition-all";
+                } else {
+                    btn.className = "lvl-btn flex-1 py-2 px-1 text-center rounded-xl font-bold text-xs sm:text-sm text-amber-200/50 hover:text-amber-100 transition-all";
+                }
+            }
+
+            document.getElementById("targetSumDisplay").textContent = LEVEL_CONFIGS[lvl].targetSum;
+
+            renderBoard();
+            renderNumberBank();
+            playTone("E5");
+        }
+
+        function renderNumberBank() {
+            const bankContainer = document.getElementById("numberBank");
+            bankContainer.innerHTML = "";
+
+            const usedNumbers = boardState.filter(n => n !== null);
+
+            for (let num = 1; num <= 6; num++) {
+                const isUsed = usedNumbers.includes(num);
+                const isSelected = selectedNumber === num;
+
+                const numBtn = document.createElement("div");
+                numBtn.textContent = num;
+
+                let classes = "w-12 h-12 sm:w-14 sm:h-14 rounded-full font-black font-board text-xl sm:text-2xl flex items-center justify-center transition-all duration-150 user-select-none ";
+
+                if (isUsed) {
+                    classes += "wood-piece-used cursor-not-allowed";
+                } else if (isSelected) {
+                    classes += "wood-piece ring-4 ring-amber-400 cursor-pointer z-20";
+                } else {
+                    classes += "wood-piece hover:scale-100 active: cursor-grab";
+                }
+
+                numBtn.className = classes;
+
+                if (!isUsed) {
+                    numBtn.setAttribute("draggable", "true");
+                    setupDragEvents(numBtn, num, null);
+                }
+
+                numBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (isUsed) return;
+                    if (selectedNumber === num) {
+                        selectedNumber = null;
+                    } else {
+                        selectedNumber = num;
+                        playTone("G4");
+                    }
+                    renderNumberBank();
+                    renderBoard();
+                };
+
+                bankContainer.appendChild(numBtn);
+            }
+        }
+
+        function renderBoard() {
+            const target = LEVEL_CONFIGS[currentLevel].targetSum;
+
+            for (let i = 0; i < 6; i++) {
+                const slotEl = document.getElementById(`slot-${i}`);
+                const val = boardState[i];
+                
+                slotEl.style.top = SLOT_POSITIONS[i].top; 
+                slotEl.style.left = SLOT_POSITIONS[i].left;
+
+                slotEl.innerHTML = "";
+
+                if (val !== null) {
+                    const piece = document.createElement("div");
+                    piece.className = "w-full h-full rounded-full wood-piece font-black font-board text-xl sm:text-2xl flex items-center justify-center cursor-grab bounce-in shadow-2xl";
+                    piece.textContent = val;
+                    piece.setAttribute("draggable", "true");
+
+                    setupDragEvents(piece, val, i);
+
+                    slotEl.appendChild(piece);
+                    slotEl.classList.remove("border-dashed");
+                    slotEl.classList.add("border-solid", "border-amber-600/80");
+                } else {
+                    const isMidpoint = (i % 2 === 1);
+                    const label = isMidpoint ? " " : " ";
+
+                    const labelSpan = document.createElement("span");
+                    labelSpan.className = "text-amber-200/40 text-[10px] sm:text-xs font-semibold text-center pointer-events-none";
+                    labelSpan.innerHTML = label;
+                    slotEl.appendChild(labelSpan);
+
+                    slotEl.className = "slot-node absolute -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 bg-stone-900/90 border-2 border-dashed border-amber-500/50 rounded-full flex items-center justify-center cursor-pointer shadow-2xl hover:scale-100 transition-all z-10";
+
+                    
+                }
+            }
+
+            // Cálculo da soma das arestas
+            const rightSum = getSum([0, 1, 2]);
+            const bottomSum = getSum([4, 3, 2]);
+            const leftSum = getSum([0, 5, 4]);
+
+            updateSideBadge("side-sum-right", "sum-val-right", "edge-right", rightSum, target);
+            updateSideBadge("side-sum-bottom", "sum-val-bottom", "edge-bottom", bottomSum, target);
+            updateSideBadge("side-sum-left", "sum-val-left", "edge-left", leftSum, target);
+
+            checkWinCondition();
+        }
+
+        function getSum(indices) {
+            let sum = 0;
+            let count = 0;
+            for (let idx of indices) {
+                if (boardState[idx] !== null) {
+                    sum += boardState[idx];
+                    count++;
+                }
+            }
+            return { sum, count };
+        }
+
+        function updateSideBadge(badgeId, textId, edgeId, sumObj, target) {
+            const badge = document.getElementById(badgeId);
+            const textEl = document.getElementById(textId);
+            const edge = document.getElementById(edgeId);
+
+            textEl.textContent = `${sumObj.sum}`;
+
+            if (sumObj.count === 3) {
+                if (sumObj.sum === target) {
+                    badge.className = "absolute bg-emerald-700 border-2 border-emerald-400 rounded-full w-12 h-12 flex flex-col items-center justify-center text-xs font-bold text-emerald-100 shadow-2xl scale-110 z-10 transition-all";
+                    edge.setAttribute("stroke", "#10B981");
+                } else {
+                    badge.className = "absolute bordeaux-bg border-2 border-rose-400 rounded-full w-12 h-12 flex flex-col items-center justify-center text-xs font-bold text-rose-100 shadow-2xl z-10 transition-all";
+                    edge.setAttribute("stroke", "#E11D48");
+                }
+            } else {
+                badge.className = "absolute bg-stone-900 border-2 border-amber-600/70 rounded-full w-12 h-12 flex flex-col items-center justify-center text-xs font-bold text-amber-100 shadow-2xl z-10 transition-all";
+                edge.setAttribute("stroke", "#800020");
+            }
+
+            if (badgeId === "side-sum-left") {
+                badge.style.top = "35%"; badge.style.left = "-2%";
+            } else if (badgeId === "side-sum-right") {
+                badge.style.top = "35%"; badge.style.left = "92%";
+            } else if (badgeId === "side-sum-bottom") {
+                badge.style.bottom = "-30px"; badge.style.left = "45%";
+            }
+        }
+
+        /* --- Suporte Completo Drag & Drop (Mouse + Touch) --- */
+        function setupDragEvents(element, num, sourceSlotIdx) {
+            element.ondragstart = (e) => {
+                selectedNumber = num;
+                draggedFromSlot = sourceSlotIdx;
+                e.dataTransfer.setData("text/plain", JSON.stringify({ num, sourceSlotIdx }));
+            };
+
+            element.ontouchstart = (e) => {
+                e.preventDefault();
+                selectedNumber = num;
+                draggedFromSlot = sourceSlotIdx;
+
+                const touch = e.touches[0];
+                const clone = element.cloneNode(true);
+                clone.classList.add("dragging-touch");
+                document.body.appendChild(clone);
+
+                moveAt(touch.clientX, touch.clientY);
+
+                function moveAt(pageX, pageY) {
+                    clone.style.left = pageX + 'px';
+                    clone.style.top = pageY + 'px';
+                }
+
+                function onTouchMove(event) {
+                    const t = event.touches[0];
+                    moveAt(t.clientX, t.clientY);
+                }
+
+                document.addEventListener('touchmove', onTouchMove, { passive: false });
+
+                element.ontouchend = (event) => {
+                    document.removeEventListener('touchmove', onTouchMove);
+                    element.ontouchend = null;
+                    clone.remove();
+
+                    const changedTouch = event.changedTouches[0];
+                    const targetEl = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY);
+                    
+                    if (targetEl) {
+                        const slotNode = targetEl.closest('.slot-node');
+                        if (slotNode) {
+                            const slotIdx = parseInt(slotNode.getAttribute('data-slot-idx'));
+                            placePieceInSlot(num, slotIdx, sourceSlotIdx);
+                            return;
+                        }
+                    }
+
+                    if (sourceSlotIdx !== null) {
+                        boardState[sourceSlotIdx] = null;
+                        playTone("C4");
+                        renderBoard();
+                        renderNumberBank();
+                    }
+                };
+            };
+        }
+
+        function handleSlotClick(slotIdx) {
+            if (boardState[slotIdx] !== null) {
+                playTone("C4");
+                boardState[slotIdx] = null;
+                selectedNumber = null;
+                renderBoard();
+                renderNumberBank();
+                return;
+            }
+
+            if (selectedNumber !== null) {
+                placePieceInSlot(selectedNumber, slotIdx, null);
+            }
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function handleDrop(event, slotIdx) {
+            event.preventDefault();
+            const dataRaw = event.dataTransfer.getData("text/plain");
+            let num = selectedNumber;
+            let srcSlot = draggedFromSlot;
+
+            if (dataRaw) {
+                try {
+                    const parsed = JSON.parse(dataRaw);
+                    num = parsed.num;
+                    srcSlot = parsed.sourceSlotIdx;
+                } catch(e) {}
+            }
+
+            if (num) {
+                placePieceInSlot(num, slotIdx, srcSlot);
+            }
+        }
+
+        function placePieceInSlot(num, targetSlotIdx, sourceSlotIdx) {
+            if (sourceSlotIdx === targetSlotIdx) return;
+
+            if (sourceSlotIdx !== null && sourceSlotIdx !== undefined) {
+                boardState[sourceSlotIdx] = null;
+            } else {
+                const existingIdx = boardState.indexOf(num);
+                if (existingIdx !== -1) {
+                    boardState[existingIdx] = null;
+                }
+            }
+
+            boardState[targetSlotIdx] = num;
+
+            playTone("A4");
+            selectedNumber = null;
+            draggedFromSlot = null;
+
+            renderBoard();
+            renderNumberBank();
+        }
+
+        function resetCurrentBoard() {
+            boardState = [null, null, null, null, null, null];
+            selectedNumber = null;
+            draggedFromSlot = null;
+            playTone("C4");
+            renderBoard();
+            renderNumberBank();
+        }
+
+        function giveHint() {
+            const solution = LEVEL_CONFIGS[currentLevel].solutions[0];
+            for (let i = 0; i < 6; i++) {
+                if (boardState[i] === null) {
+                    const targetVal = solution[i];
+                    const existingIdx = boardState.indexOf(targetVal);
+                    if (existingIdx !== -1) {
+                        boardState[existingIdx] = null;
+                    }
+                    boardState[i] = targetVal;
+                    playTone("F5");
+                    break;
+                }
+            }
+            selectedNumber = null;
+            renderBoard();
+            renderNumberBank();
+        }
+
+        function autoSolveCurrentLevel() {
+            const solution = LEVEL_CONFIGS[currentLevel].solutions[0];
+            boardState = [...solution];
+            selectedNumber = null;
+            playTone("C5");
+            playTone("G5");
+            renderBoard();
+            renderNumberBank();
+        }
+
+        function checkWinCondition() {
+            if (boardState.includes(null)) return;
+
+            const target = LEVEL_CONFIGS[currentLevel].targetSum;
+            const right = boardState[0] + boardState[1] + boardState[2];
+            const bottom = boardState[4] + boardState[3] + boardState[2];
+            const left = boardState[0] + boardState[5] + boardState[4];
+
+            if (right === target && bottom === target && left === target) {
+                setTimeout(() => {
+                    triggerVictory();
+                }, 300);
+            }
+        }
+
+        function triggerVictory() {
+            if (soundEnabled) {
+                try {
+                    initAudio();
+                    const now = Tone.now();
+                    synth.triggerAttackRelease("C5", "8n", now);
+                    synth.triggerAttackRelease("E5", "8n", now + 0.15);
+                    synth.triggerAttackRelease("G5", "8n", now + 0.30);
+                    synth.triggerAttackRelease("C6", "4n", now + 0.45);
+                } catch(e){}
+            }
+
+            confetti({
+                particleCount: 120,
+                spread: 80,
+                origin: { y: 0.6 }
+            });
+
+            const modal = document.getElementById("victoryModal");
+            const msg = document.getElementById("victoryMessage");
+            const nextBtn = document.getElementById("nextLevelBtn");
+
+            msg.textContent = `Você dominou a Fase ${currentLevel} com soma ${LEVEL_CONFIGS[currentLevel].targetSum}!`;
+
+            if (currentLevel < 4) {
+                nextBtn.style.display = "flex";
+            } else {
+                nextBtn.style.display = "none";
+                msg.textContent = "Parabéns! Você concluiu todas as 4 Fases do Triângulo Mágico de Tabuleiro!";
+            }
+
+            modal.classList.remove("hidden");
+        }
+
+        function advanceLevel() {
+            closeVictoryModal();
+            if (currentLevel < 4) {
+                selectLevel(currentLevel + 1);
+            }
+        }
+
+        function closeVictoryModal() {
+            document.getElementById("victoryModal").classList.add("hidden");
+        }
+
+        function openRulesModal() {
+            document.getElementById("rulesModal").classList.remove("hidden");
+        }
+
+        function closeRulesModal() {
+            document.getElementById("rulesModal").classList.add("hidden");
+        }
+
+        window.onload = () => {
+            selectLevel(1);
+        };
+    </script>
+</body>
+</html>
